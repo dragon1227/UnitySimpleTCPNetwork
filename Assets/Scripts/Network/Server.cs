@@ -61,7 +61,7 @@ public class Server
         _connections[id].Disconnect();
         _connections.Remove(id);
 
-        ClientConnectedEvent?.Invoke(id);
+        ClientDisconnectedEvent?.Invoke(id);
     }
 
     private void OnMessageReceived(int id, byte[] data)

@@ -41,10 +41,11 @@ public class ClientApplicationStartup : MonoBehaviour
         _client.OnMessageReceived   += MessageReceived;
         
         _handler = new MessageHandler();
-        _handler.AddHandler("chat", HandleChatMessage);
+        _handler.AddHandler("chat",     HandleChatMessage);
+        _handler.AddHandler("greet",    GreetHandleMessage);
 
     }
-    
+
     private void OnChatInput(string input)
     {
         if (!string.IsNullOrEmpty(input) && !string.IsNullOrWhiteSpace(input))
@@ -87,5 +88,13 @@ public class ClientApplicationStartup : MonoBehaviour
 
         //  log to view
         _chatPanel.AddLog(chat.author + ": " + chat.entry);
+    }
+
+    private void GreetHandleMessage(byte[] data)
+    {
+        var greet = data.Deserialize<GreetData>();
+
+        _chatPanel.AddLog(greet.greetMessage);
+        _chatPanel.AddLog("Connection id: " + greet.id);
     }
 }

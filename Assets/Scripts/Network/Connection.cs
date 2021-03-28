@@ -56,6 +56,7 @@ public class Connection: ISocketSend
         }
         catch (Exception ex)
         {
+            OnDisconnected?.Invoke(id);
             Debug.Log($"Error receiving TCP data: {ex}");
         }
 

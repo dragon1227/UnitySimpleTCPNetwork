@@ -10,9 +10,9 @@ public class ServerApplicationStartup : MonoBehaviour
     {
         _server = new Server(7777);
         _server.Start();
-        _server.ClientConnectedEvent += OnClientConnect;
-        _server.MessageReceivedEvent += OnMessage;
-        _server.ClientConnectedEvent += OnClientDisconnect;
+        _server.ClientConnectedEvent    += OnClientConnect;
+        _server.MessageReceivedEvent    += OnMessage;
+        _server.ClientDisconnectedEvent += OnClientDisconnect;
 
         _handler = new MessageHandler();
         _handler.AddHandler("chat", HandleChatMessage);
@@ -22,7 +22,19 @@ public class ServerApplicationStartup : MonoBehaviour
     //  event callbacks
     private void OnClientConnect(int connId)
     {
+        var greet = new GreetData()
+        {
+            id = connId,
+            greetMessage = "Server connection success. Welcome to chat."
+        };
 
+        var msg = new Message()
+        {
+            header = "greet",
+            body   = greet.Serialize()
+        };
+
+        _server.Send(connId, msg.Serialize());
     }
 
     private void OnMessage(int connId, byte[] data)
@@ -32,7 +44,7 @@ public class ServerApplicationStartup : MonoBehaviour
 
     private void OnClientDisconnect(int connId)
     {
-
+        Debug.Log("Client connection lost. connId: " + connId);
     }
 
     private void OnApplicationQuit()
