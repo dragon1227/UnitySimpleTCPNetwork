@@ -46,6 +46,13 @@ public class ClientApplicationStartup : MonoBehaviour
 
     }
 
+
+    //  event callbacks
+    private void MessageReceived(byte[] msg)
+    {
+        _handler.Handle(msg);
+    }
+
     private void OnChatInput(string input)
     {
         if (!string.IsNullOrEmpty(input) && !string.IsNullOrWhiteSpace(input))
@@ -69,19 +76,12 @@ public class ClientApplicationStartup : MonoBehaviour
         }
     }
 
-
-
-
-    private void MessageReceived(byte[] msg)
-    {
-        _handler.Handle(msg);
-    }
-
     private void OnApplicationQuit()
     {
         _client.Disconnect();
     }
 
+    //  handlers
     private void HandleChatMessage(byte[] data)
     {
         var chat = data.Deserialize<ChatData>();

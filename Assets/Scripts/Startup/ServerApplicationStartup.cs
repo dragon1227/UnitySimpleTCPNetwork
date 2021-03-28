@@ -16,7 +16,6 @@ public class ServerApplicationStartup : MonoBehaviour
 
         _handler = new MessageHandler();
         _handler.AddHandler("chat", HandleChatMessage);
-
     }
 
     //  event callbacks

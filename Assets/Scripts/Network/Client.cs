@@ -3,7 +3,7 @@ using System.Net.Sockets;
 using System.Text;
 using UnityEngine;
 
-public class Client: ISocketSend
+public class Client
 {
     public event Action<byte[]> OnMessageReceived;
 
