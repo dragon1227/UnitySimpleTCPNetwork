@@ -37,87 +37,176 @@ Open up the Server scene.
 There is a component created for server to setup and listen `ServerApplicationStartup`.
 
 ```csharp
-private Server _server;
+using System;
+using UnityEngine;
 
-private void Start()
+public class ServerApplicationStartup : MonoBehaviour
 {
-    _server = new Server(7777);
-    _server.Start();
-    _server.ClientConnectedEvent    += OnClientConnect;
-    _server.MessageReceivedEvent    += OnMessage;
-    _server.ClientDisconnectedEvent += OnClientDisconnect;
-}
-```
+    private Server _server;
+    private MessageHandler _handler;
 
-That's it. 
-
-I also added a pipeline, `MessageHandler` class responsible for unpacking messages and invoking responsible method.
-
-```csharp
-private Server _server;
-private MessageHandler _handler;
-
-private void Start()
-{
-    _server = new Server(7777);
-    _server.Start();
-    _server.ClientConnectedEvent    += OnClientConnect;
-    _server.MessageReceivedEvent    += OnMessage;
-    _server.ClientDisconnectedEvent += OnClientDisconnect;
-
-    _handler = new MessageHandler();
-    _handler.AddHandler("chat", HandleChatMessage);
-}
-```
-
-
-```csharp
-private void OnMessage(int connId, byte[] data)
-{
-    _handler.Handle(data);
-}
-```
-
-```csharp
-private void HandleChatMessage(byte[] data)
-{
-    var chat = data.Deserialize<ChatData>();
-
-    Debug.Log("received chat, author: " + chat.author);
-
-    var msg = new Message()
+    private void Start()
     {
-        header = "chat",
-        body = data
-    };
+        _server = new Server(7777);
+        _server.Start();
+        _server.ClientConnectedEvent    += OnClientConnect;
+        _server.MessageReceivedEvent    += OnMessage;
+        _server.ClientDisconnectedEvent += OnClientDisconnect;
+
+        _handler = new MessageHandler();
+        _handler.AddHandler("chat", HandleChatMessage);
+    }
+
+    //  event callbacks
+    private void OnClientConnect(int connId)
+    {
+        var greet = new GreetData()
+        {
+            id = connId,
+            greetMessage = "Server connection success. Welcome to chat."
+        };
+
+        var msg = new Message()
+        {
+            header = "greet",
+            body   = greet.Serialize()
+        };
+
+        _server.Send(connId, msg.Serialize());
+    }
+
+    private void OnMessage(int connId, byte[] data)
+    {
+        _handler.Handle(data);
+    }
+
+    private void OnClientDisconnect(int connId)
+    {
+        Debug.Log("Client connection lost. connId: " + connId);
+    }
+
+    private void OnApplicationQuit()
+    {
+        _server.Stop();
+    }
+
+    //  handlers
+    private void HandleChatMessage(byte[] data)
+    {
+        var chat = data.Deserialize<ChatData>();
+
+        Debug.Log("received chat, author: " + chat.author);
+
+        var msg = new Message()
+        {
+            header = "chat",
+            body = data
+        };
+        
+        _server.SendAll(msg.Serialize());
+    }
+}
+```
+
+For the client scene I created some ui elements. 
+
+```csharp
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class ClientApplicationStartup : MonoBehaviour
+{
+    public string ip = "127.0.0.1";
+    public int port = 7777;
+    public Transform canvasParent;
+    public GameObject loginPrefab;
+    public GameObject chatPrefab;
+
+    private string _clientNickname;
+    private ChatPanel _chatPanel;
+
+    private Client _client;
+    private MessageHandler _handler;
+
+    private void Start()
+    {
+        var login = Instantiate(loginPrefab, canvasParent).GetComponent<LoginPanel>();
+        login.inputField.onEndEdit.AddListener(input => _clientNickname = input );
+        login.connectButton.onClick.AddListener(() => Connect());
+    }
+
+    private void CreateChatPanel()
+    {
+        _chatPanel = Instantiate(chatPrefab, canvasParent).GetComponent<ChatPanel>();
+        _chatPanel.chatLogText.text = "";
+        _chatPanel.inputField.onEndEdit.AddListener(OnChatInput);
+        _chatPanel.inputField.ActivateInputField();
+    }
     
-    _server.SendAll(msg.Serialize());
+    private void Connect()
+    {
+        CreateChatPanel();
+
+        _client = new Client();
+        _client.Start(ip, port);
+        _client.OnMessageReceived   += MessageReceived;
+        
+        _handler = new MessageHandler();
+        _handler.AddHandler("chat",     HandleChatMessage);
+        _handler.AddHandler("greet",    GreetHandleMessage);
+    }
+
+    //  event callbacks
+    private void MessageReceived(byte[] msg)
+    {
+        _handler.Handle(msg);
+    }
+
+    private void OnChatInput(string input)
+    {
+        if (!string.IsNullOrEmpty(input) && !string.IsNullOrWhiteSpace(input))
+        {
+            var chat = new ChatData()
+            {
+                author = _clientNickname,
+                entry  = input
+            };
+
+            var msg = new Message()
+            {
+                header = "chat",
+                body   = chat.Serialize()
+            };
+
+            _client.Send(msg.Serialize());
+
+            _chatPanel.inputField.text = "";
+            _chatPanel.inputField.ActivateInputField();
+        }
+    }
+
+    private void OnApplicationQuit()
+    {
+        _client.Disconnect();
+    }
+
+    //  handlers
+    private void HandleChatMessage(byte[] data)
+    {
+        var chat = data.Deserialize<ChatData>();
+        _chatPanel.AddLog(chat.author + ": " + chat.entry);
+    }
+
+    private void GreetHandleMessage(byte[] data)
+    {
+        var greet = data.Deserialize<GreetData>();
+        _chatPanel.AddLog(greet.greetMessage);
+        _chatPanel.AddLog("Connection id: " + greet.id);
+    }
 }
 ```
-
-Handler will invoke methods based on header info in `Message`
-
-```csharp
-[System.Serializable]
-public class Message
-{
-    public string header;
-    public byte[] body;
-}
-```
-
-And the Client scene and `ClientApplicationStartup` is almost identical to server.
-
-```csharp
-private void Connect()
-{
-    _client = new Client();
-    _client.Start(ip, port);
-    _client.OnMessageReceived   += MessageReceived;
-}
-```
-
-I also created a chat panel to send and receive chat messages for client scene.
 
 Finally, `ThreadManager` is responsible for executing on main thread. 
 Further info here,
